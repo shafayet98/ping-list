@@ -28,72 +28,29 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build, tag, and push image to ECR
         env:
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -f apps/api/Dockerfile -t $ECR_REPO_URI:$IMAGE_TAG -t $ECR_REPO_URI:latest .
-          docker push $ECR_REPO_URI:$IMAGE_TAG
-          docker push $ECR_REPO_URI:latest
+          docker buildx build \
+            --platform linux/amd64 \
+            -f apps/api/Dockerfile \
+            -t $ECR_REPO_URI:$IMAGE_TAG \
+            -t $ECR_REPO_URI:latest \
+            --push \
+            .
 
-      - name: Deploy to App Runner
-        env:
-          ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
-          IMAGE_TAG: ${{ github.sha }}
-          SMARTSHEET_SHEET_ID: ${{ secrets.SMARTSHEET_SHEET_ID }}
+      - name: Deploy to ECS Fargate
         run: |
-          # Check if service exists
-          SERVICE_ARN=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='ping-list-api'].ServiceArn" --output text)
-
-          if [ -z "$SERVICE_ARN" ]; then
-            echo "Creating App Runner service..."
-            aws apprunner create-service \
-              --service-name ping-list-api \
-              --source-configuration "{
-                \"AuthenticationConfiguration\": {
-                  \"AccessRoleArn\": \"$(aws iam get-role --role-name PingListApiStack-AppRunnerAccessRoleC89E5843-aL8K9zkH3rGK --query Role.Arn --output text)\"
-                },
-                \"AutoDeploymentsEnabled\": false,
-                \"ImageRepository\": {
-                  \"ImageIdentifier\": \"$ECR_REPO_URI:$IMAGE_TAG\",
-                  \"ImageRepositoryType\": \"ECR\",
-                  \"ImageConfiguration\": {
-                    \"Port\": \"3000\",
-                    \"RuntimeEnvironmentVariables\": {
-                      \"NODE_ENV\": \"production\",
-                      \"SMARTSHEET_SHEET_ID\": \"$SMARTSHEET_SHEET_ID\"
-                    }
-                  }
-                }
-              }" \
-              --instance-configuration "{
-                \"Cpu\": \"0.25 vCPU\",
-                \"Memory\": \"0.5 GB\",
-                \"InstanceRoleArn\": \"$(aws iam get-role --role-name PingListApiStack-AppRunnerInstanceRole96A5A063-eQ1sU8dYy66M --query Role.Arn --output text)\"
-              }"
-          else
-            echo "Updating App Runner service $SERVICE_ARN..."
-            aws apprunner update-service \
-              --service-arn $SERVICE_ARN \
-              --source-configuration "{
-                \"AuthenticationConfiguration\": {
-                  \"AccessRoleArn\": \"$(aws iam get-role --role-name PingListApiStack-AppRunnerAccessRoleC89E5843-aL8K9zkH3rGK --query Role.Arn --output text)\"
-                },
-                \"AutoDeploymentsEnabled\": false,
-                \"ImageRepository\": {
-                  \"ImageIdentifier\": \"$ECR_REPO_URI:$IMAGE_TAG\",
-                  \"ImageRepositoryType\": \"ECR\",
-                  \"ImageConfiguration\": {
-                    \"Port\": \"3000\",
-                    \"RuntimeEnvironmentVariables\": {
-                      \"NODE_ENV\": \"production\",
-                      \"SMARTSHEET_SHEET_ID\": \"$SMARTSHEET_SHEET_ID\"
-                    }
-                  }
-                }
-              }"
-          fi
+          aws ecs update-service \
+            --cluster ping-list \
+            --service ping-list-api \
+            --force-new-deployment \
+            --region ap-southeast-2
 
   deploy-web:
     name: Build & deploy frontend

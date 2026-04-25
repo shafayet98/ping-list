@@ -18,6 +18,7 @@ new ApiStack(app, "PingListApiStack", {
   tableArn: dataStack.tableArn,
   tableName: dataStack.tableName,
   smartsheetSecretArn: dataStack.smartsheetSecretArn,
+  kmsKeyArn: dataStack.kmsKeyArn,
 });
 
 new WebStack(app, "PingListWebStack", { env });
