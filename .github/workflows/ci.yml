@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: [main]
@@ -14,7 +13,6 @@ jobs:
   check:
     name: Lint, typecheck, and build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +28,9 @@ jobs:
 
       - name: Build shared types
         run: npm run build --workspace=packages/shared-types
+
+      - name: Build smartsheet client
+        run: npm run build --workspace=packages/smartsheet-client
 
       - name: Lint
         run: npm run lint
