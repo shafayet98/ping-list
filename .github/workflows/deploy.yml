@@ -1,0 +1,131 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-api:
+    name: Build & deploy API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        env:
+          ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f apps/api/Dockerfile -t $ECR_REPO_URI:$IMAGE_TAG -t $ECR_REPO_URI:latest .
+          docker push $ECR_REPO_URI:$IMAGE_TAG
+          docker push $ECR_REPO_URI:latest
+
+      - name: Deploy to App Runner
+        env:
+          ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
+          IMAGE_TAG: ${{ github.sha }}
+          SMARTSHEET_SHEET_ID: ${{ secrets.SMARTSHEET_SHEET_ID }}
+        run: |
+          # Check if service exists
+          SERVICE_ARN=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='ping-list-api'].ServiceArn" --output text)
+
+          if [ -z "$SERVICE_ARN" ]; then
+            echo "Creating App Runner service..."
+            aws apprunner create-service \
+              --service-name ping-list-api \
+              --source-configuration "{
+                \"AuthenticationConfiguration\": {
+                  \"AccessRoleArn\": \"$(aws iam get-role --role-name PingListApiStack-AppRunnerAccessRoleC89E5843-aL8K9zkH3rGK --query Role.Arn --output text)\"
+                },
+                \"AutoDeploymentsEnabled\": false,
+                \"ImageRepository\": {
+                  \"ImageIdentifier\": \"$ECR_REPO_URI:$IMAGE_TAG\",
+                  \"ImageRepositoryType\": \"ECR\",
+                  \"ImageConfiguration\": {
+                    \"Port\": \"3000\",
+                    \"RuntimeEnvironmentVariables\": {
+                      \"NODE_ENV\": \"production\",
+                      \"SMARTSHEET_SHEET_ID\": \"$SMARTSHEET_SHEET_ID\"
+                    }
+                  }
+                }
+              }" \
+              --instance-configuration "{
+                \"Cpu\": \"0.25 vCPU\",
+                \"Memory\": \"0.5 GB\",
+                \"InstanceRoleArn\": \"$(aws iam get-role --role-name PingListApiStack-AppRunnerInstanceRole96A5A063-eQ1sU8dYy66M --query Role.Arn --output text)\"
+              }"
+          else
+            echo "Updating App Runner service $SERVICE_ARN..."
+            aws apprunner update-service \
+              --service-arn $SERVICE_ARN \
+              --source-configuration "{
+                \"AuthenticationConfiguration\": {
+                  \"AccessRoleArn\": \"$(aws iam get-role --role-name PingListApiStack-AppRunnerAccessRoleC89E5843-aL8K9zkH3rGK --query Role.Arn --output text)\"
+                },
+                \"AutoDeploymentsEnabled\": false,
+                \"ImageRepository\": {
+                  \"ImageIdentifier\": \"$ECR_REPO_URI:$IMAGE_TAG\",
+                  \"ImageRepositoryType\": \"ECR\",
+                  \"ImageConfiguration\": {
+                    \"Port\": \"3000\",
+                    \"RuntimeEnvironmentVariables\": {
+                      \"NODE_ENV\": \"production\",
+                      \"SMARTSHEET_SHEET_ID\": \"$SMARTSHEET_SHEET_ID\"
+                    }
+                  }
+                }
+              }"
+          fi
+
+  deploy-web:
+    name: Build & deploy frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "npm"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build --workspace=apps/web
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync apps/web/dist s3://ping-list-web-390843337949 --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id EIRTX2MPHGYKC \
+            --paths "/*"
