@@ -1,30 +1,13 @@
 import Fastify from "fastify";
-import type { ShoppingItem } from "@ping-list/shared-types";
+import { itemRoutes } from "./routes/items.js";
 
-const server = Fastify({
-  logger: true,
-});
-
-// Temporary in-memory data so we can see types working
-const sampleItems: ShoppingItem[] = [
-  {
-    id: "1",
-    name: "Milk",
-    quantity: 2,
-    category: "Dairy",
-    purchased: false,
-    createdAt: new Date().toISOString(),
-    purchasedAt: null,
-  },
-];
+const server = Fastify({ logger: true });
 
 server.get("/health", async () => {
   return { status: "ok" };
 });
 
-server.get("/items", async () => {
-  return sampleItems;
-});
+await server.register(itemRoutes);
 
 const start = async () => {
   try {
