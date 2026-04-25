@@ -1,0 +1,25 @@
+{
+  "name": "@ping-list/smartsheet-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "smartsheet": "^2.x.x"
+  },
+  "devDependencies": {
+    "@types/node": "^22.x.x",
+    "typescript": "^5.x.x"
+  }
+}

@@ -11,8 +11,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ping-list/shared-types": "*",
+    "@ping-list/smartsheet-client": "*",
+    "dotenv": "^17.4.2",
     "fastify": "^5.x.x",
-    "@ping-list/shared-types": "*"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.x.x",
