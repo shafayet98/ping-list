@@ -7,7 +7,7 @@ server.get("/health", async () => {
   return { status: "ok" };
 });
 
-await server.register(itemRoutes);
+await server.register(itemRoutes, { prefix: "/api" });
 
 const start = async () => {
   try {
