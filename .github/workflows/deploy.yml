@@ -76,8 +76,6 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: npm run build --workspace=apps/web
 
       - name: Sync to S3
@@ -87,5 +85,5 @@ jobs:
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id EIRTX2MPHGYKC \
+            --distribution-id E163D2U6WV0B0K \
             --paths "/*"
