@@ -22,6 +22,8 @@ export class WebStack extends cdk.Stack {
     // ALB origin for API requests
     const albOrigin = new origins.HttpOrigin(props.albDnsName, {
       protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+      httpPort: 80,
+      httpsPort: 443,
     });
 
     const distribution = new cloudfront.Distribution(this, "WebDistribution", {
@@ -33,7 +35,8 @@ export class WebStack extends cdk.Stack {
       additionalBehaviors: {
         "/api/*": {
           origin: albOrigin,
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           originRequestPolicy:
