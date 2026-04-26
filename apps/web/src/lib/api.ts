@@ -3,10 +3,8 @@ import type {
   CreateShoppingItemInput,
 } from "@ping-list/shared-types";
 
-const BASE = import.meta.env.VITE_API_URL ?? "";
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}/api${path}`, {
+  const res = await fetch(`/api${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
