@@ -13,7 +13,7 @@ const env = {
 
 const dataStack = new DataStack(app, "PingListDataStack", { env });
 
-new ApiStack(app, "PingListApiStack", {
+const apiStack = new ApiStack(app, "PingListApiStack", {
   env,
   tableArn: dataStack.tableArn,
   tableName: dataStack.tableName,
@@ -21,4 +21,7 @@ new ApiStack(app, "PingListApiStack", {
   kmsKeyArn: dataStack.kmsKeyArn,
 });
 
-new WebStack(app, "PingListWebStack", { env });
+new WebStack(app, "PingListWebStack", {
+  env,
+  albDnsName: apiStack.loadBalancerDns,
+});
