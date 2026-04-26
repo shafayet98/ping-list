@@ -1,55 +1,46 @@
-import { useEffect, useState } from "react";
-import type { ShoppingItem } from "@ping-list/shared-types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { ShoppingList } from "./pages/ShoppingList";
+import { History } from "./pages/History";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10_000,
+      retry: 1,
+    },
+  },
+});
 
 export function App() {
-  const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/items")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<ShoppingItem[]>;
-      })
-      .then((data) => {
-        setItems(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="mb-6 text-3xl font-bold text-slate-900">Ping List</h1>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        {/* Nav */}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white px-6 py-3 md:hidden">
+          <div className="flex justify-around">
+            <Link
+              to="/"
+              className="flex flex-col items-center gap-0.5 text-xs text-slate-600"
+            >
+              <span className="text-lg">🛒</span>
+              List
+            </Link>
+            <Link
+              to="/history"
+              className="flex flex-col items-center gap-0.5 text-xs text-slate-600"
+            >
+              <span className="text-lg">✅</span>
+              History
+            </Link>
+          </div>
+        </nav>
 
-        {loading && <p className="text-slate-600">Loading...</p>}
-        {error && <p className="text-red-600">Error: {error}</p>}
-
-        {!loading && !error && (
-          <ul className="space-y-2">
-            {items.map((item) => (
-              <li
-                key={item.id}
-                className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-900">
-                    {item.name}
-                  </span>
-                  <span className="text-sm text-slate-500">
-                    {item.quantity} · {item.category}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+        <Routes>
+          <Route path="/" element={<ShoppingList />} />
+          <Route path="/history" element={<History />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
