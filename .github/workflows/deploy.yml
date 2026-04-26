@@ -76,6 +76,8 @@ jobs:
         run: npm ci
 
       - name: Build frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: npm run build --workspace=apps/web
 
       - name: Sync to S3
